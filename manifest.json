@@ -1,0 +1,11 @@
+{
+  "name": "SwimLens – Schwimmtechnik-Analyse",
+  "short_name": "SwimLens",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07202f",
+  "theme_color": "#07202f",
+  "lang": "de",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

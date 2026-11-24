@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07202f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>SwimLens – Schwimmtechnik-Analyse</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#07202f;--card:#0e3148;--card2:#134059;--ink:#eaf6fb;--mut:#8fb3c4;--acc:#22c1dc;--ok:#3ddc97;--warn:#ffd166;--bad:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:calc(12px + env(safe-area-inset-top)) 16px 8px;display:flex;align-items:center;gap:10px}
+header h1{font-size:20px;margin:0}header small{color:var(--mut)}
+main{padding:0 12px calc(90px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+.card{background:var(--card);border-radius:14px;padding:14px;margin:10px 0}
+.card h2{font-size:17px;margin:0 0 8px}.card h3{font-size:15px;margin:12px 0 6px}
+.small{font-size:13px;color:var(--mut)}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 4px}
+input[type=text],select{width:100%;padding:11px;border-radius:10px;border:1px solid #1d5272;background:#0a2739;color:var(--ink);font-size:16px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
+.seg button{padding:10px 2px;border-radius:10px;border:1px solid #1d5272;background:#0a2739;color:var(--ink);font-size:14px}
+.seg button.on{background:var(--acc);color:#04202b;border-color:var(--acc);font-weight:700}
+.row{display:flex;gap:8px;margin-top:10px}.row>*{flex:1}
+.btn{padding:13px;border-radius:12px;border:1px solid #1d5272;background:var(--card2);color:var(--ink);font-size:15px}
+.btn.primary{background:var(--acc);color:#04202b;border-color:var(--acc);font-weight:700}
+.btn:disabled{opacity:.4}
+.bar{height:10px;border-radius:6px;background:#0a2739;overflow:hidden;margin:8px 0}
+.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .2s}
+nav{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(6,1fr);background:#051823;border-top:1px solid #12435e;padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{background:none;border:0;color:var(--mut);padding:8px 0 7px;font-size:11px}
+nav button span{display:block;font-size:19px}
+nav button.on{color:var(--acc)}
+canvas.view{width:100%;height:auto;border-radius:12px;background:#000;display:block}
+canvas.chart{width:100%;height:170px;display:block}
+input[type=range]{width:100%;margin:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:var(--card2);border-radius:20px;padding:5px 11px;font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m{background:var(--card2);border-radius:12px;padding:10px}
+.m b{font-size:24px;display:block}.m .l{font-size:12px;color:var(--mut)}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-top:4px;color:#04202b;font-weight:700}
+.ok{background:var(--ok)}.warn{background:var(--warn)}.bad{background:var(--bad)}.na{background:#6b8794}
+.tip{border-left:4px solid var(--warn);background:var(--card2);border-radius:10px;padding:10px 12px;margin:8px 0}
+.tip.bad{border-color:var(--bad);background:var(--card2)}
+.tip.good{border-color:var(--ok)}
+.tip b{display:block}.tip .d{color:var(--mut);font-size:14px}
+.hist{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #12435e;font-size:14px}
+.hist button{background:none;border:0;color:var(--bad);font-size:18px}
+#report{background:#fff;color:#111;border-radius:12px;padding:16px}
+#report h2{margin:0 0 4px}#report h3{margin:14px 0 6px;border-bottom:2px solid #22c1dc}
+#report table{width:100%;border-collapse:collapse;font-size:14px}
+#report td,#report th{border-bottom:1px solid #ddd;padding:5px;text-align:left}
+#report img{width:32%;border-radius:6px;vertical-align:top}
+#report .tp{margin:6px 0;font-size:14px}
+.vid{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+@media print{
+ body{background:#fff}header,nav,.tab:not(#tab-report),#repBtns{display:none!important}
+ #tab-report{display:block!important}main{padding:0;max-width:none}#report{border-radius:0;padding:0}
+}
+</style>
+</head>
+<body>
+<header><svg width="34" height="34" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#22c1dc"/><path d="M8 40c6-6 10 6 16 0s10 6 16 0 10 6 16 0" stroke="#07202f" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="40" cy="22" r="6" fill="#07202f"/></svg>
+<div><h1>SwimLens</h1><small>Technik-Analyse per Handykamera</small></div></header>
+<main>
+
+<section id="tab-start" class="tab active">
+ <div class="card">
+  <h2>Neue Analyse</h2>
+  <label for="name">Schwimmer/in</label>
+  <input type="text" id="name" placeholder="Name" autocomplete="off">
+  <label>Schwimmlage</label>
+  <div class="seg" id="strokeSeg">
+   <button data-s="free" class="on">Kraul</button><button data-s="back">Rücken</button><button data-s="breast">Brust</button><button data-s="fly">Delfin</button>
+  </div>
+  <label for="quality">Genauigkeit</label>
+  <select id="quality"><option value="fast">Schnell (Lite, 10 Bilder/s)</option><option value="accurate">Genau (Full, 15 Bilder/s)</option></select>
+  <div class="row">
+   <button class="btn primary" id="btnRec">🎥 Video aufnehmen</button>
+   <button class="btn" id="btnPick">📁 Aus Galerie</button>
+  </div>
+  <input type="file" id="fileRec" accept="video/*" capture="environment" hidden>
+  <input type="file" id="filePick" accept="video/*" hidden>
+ </div>
+ <div class="card" id="progCard" hidden>
+  <h2 id="progTitle">Analyse läuft …</h2>
+  <div class="bar"><i id="progBar"></i></div>
+  <div class="small" id="progTxt"></div>
+  <div class="row"><button class="btn" id="btnCancel">Abbrechen</button></div>
+ </div>
+ <div class="card">
+  <h2>So filmst du richtig</h2>
+  <div class="small">
+   • Handy fest (Stativ/Ablage), <b>seitlich vom Beckenrand</b>, Kamera auf Wasserhöhe<br>
+   • Ganzer Körper im Bild, Schwimmer/in quert das Bild (Querformat)<br>
+   • 15–60 Sekunden, mindestens 4–5 Zyklen, gleichmäßiges Tempo<br>
+   • Gutes Licht, kontrastreiche Badekleidung, wenig Spritzer<br>
+   • Die Kamera sollte der <b>zugewandten Körperseite</b> gegenüberliegen – die Analyse nutzt die sichtbare Seite.
+  </div>
+ </div>
+ <div class="card small">Alle Berechnungen laufen auf deinem Gerät, es wird kein Video hochgeladen. Die Werte sind Richtwerte aus 2D-Pose-Schätzung (über Wasser sicher, unter Wasser geschätzt) und ersetzen keine Trainerbeurteilung.</div>
+</section>
+
+<section id="tab-review" class="tab">
+ <div class="card">
+  <canvas id="cv" class="view"></canvas>
+  <input type="range" id="slider" min="0" max="0" value="0">
+  <div class="row"><button class="btn" id="bPrev">◀ Bild</button><button class="btn" id="bNext">Bild ▶</button></div>
+  <div class="row" id="keyBtns"></div>
+  <div class="chips" id="readout"></div>
+ </div>
+ <div class="card small" id="reviewEmpty">Noch kein Video analysiert.</div>
+</section>
+
+<section id="tab-values" class="tab">
+ <div class="card"><h2 id="valTitle">Kennzahlen</h2><div class="grid" id="metricGrid"></div>
+  <div class="row"><button class="btn primary" id="btnSave" disabled>💾 Session speichern</button></div>
+  <div class="small" id="saveMsg"></div></div>
+ <div class="card"><h3>Gelenkwinkel im Zeitverlauf</h3><canvas id="ch1" class="chart"></canvas></div>
+ <div class="card"><h3>Handhöhe &amp; Hüftlage (rel. Rumpflänge)</h3><canvas id="ch2" class="chart"></canvas></div>
+</section>
+
+<section id="tab-tips" class="tab">
+ <div class="card"><h2>🎯 Dein Fokus fürs nächste Training</h2><div id="tipsMain" class="small">Noch keine Analyse.</div></div>
+ <div class="card"><h2>Weitere Hinweise</h2><div id="tipsMore" class="small">–</div></div>
+ <div class="card"><h2>Das machst du schon gut</h2><div id="tipsGood" class="small">–</div></div>
+</section>
+
+<section id="tab-hist" class="tab">
+ <div class="card"><h2>Verlauf</h2>
+  <label for="hMetric">Kennzahl</label><select id="hMetric"></select>
+  <label for="hStroke">Lage</label><select id="hStroke"><option value="free">Kraul</option><option value="back">Rücken</option><option value="breast">Brust</option><option value="fly">Delfin</option></select>
+  <label for="hName">Person</label><select id="hName"></select>
+  <canvas id="ch3" class="chart" style="margin-top:10px"></canvas>
+  <div class="small" id="hDelta"></div>
+ </div>
+ <div class="card"><h2>Gespeicherte Sessions</h2><div id="histList" class="small">–</div></div>
+</section>
+
+<section id="tab-report" class="tab">
+ <div class="card" id="repBtns"><div class="row"><button class="btn primary" id="btnPrint">📄 Drucken / Als PDF speichern</button></div>
+ <div class="small" style="margin-top:6px">Im Druckdialog „Als PDF sichern“ wählen.</div></div>
+ <div id="report"><div class="small" style="color:#555">Noch keine Analyse.</div></div>
+</section>
+</main>
+
+<nav id="nav">
+ <button data-t="start" class="on"><span>🎥</span>Start</button>
+ <button data-t="review"><span>🖼</span>Bilder</button>
+ <button data-t="values"><span>📊</span>Werte</button>
+ <button data-t="tips"><span>🎯</span>Tipps</button>
+ <button data-t="hist"><span>📈</span>Verlauf</button>
+ <button data-t="report"><span>📄</span>Bericht</button>
+</nav>
+<video id="vid" class="vid" muted playsinline preload="auto"></video>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODELS = {
+  fast: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+  accurate: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+};
+const $ = id => document.getElementById(id);
+const STROKES = { free: "Kraul", back: "Rücken", breast: "Brust", fly: "Delfin" };
+const S = { stroke: "free", frames: [], feat: [], W: 0, H: 0, fps: 10, side: "R", torso: 1, key: {}, stills: [], values: null, metrics: [], cancel: false, busy: false, token: 0, vtoken: 0 };
+const landmarkers = {}; let tsCounter = 0;
+
+/* ---------- Referenzbereiche (Richtwerte) ---------- */
+const DEF = {
+  elbowMin: { label: "Ellbogenwinkel im Zug (min.)", unit: "°", d: 0 },
+  body: { label: "Körperlage (Winkel zur Waagerechten)", unit: "°", d: 0 },
+  sag: { label: "Hüftabsenkung (rel. Rumpflänge)", unit: "", d: 2 },
+  head: { label: "Kopf-/Nackenabweichung", unit: "°", d: 0 },
+  kneeMin: { label: "Kniebeugung (min.)", unit: "°", d: 0 },
+  kick: { label: "Beinschlag-Amplitude (rel. Rumpf)", unit: "", d: 2 },
+  wave: { label: "Wellenbewegung Hüfte (rel. Rumpf)", unit: "", d: 2 },
+  cpm: { label: "Zyklen pro Minute", unit: "/min", d: 0, info: true }
+};
+const REF = {
+  free:   { elbowMin: [85, 125], body: [0, 12], sag: [-0.05, 0.10], head: [0, 30], kneeMin: [110, 170], kick: [0.3, 0.9], cpm: [30, 60] },
+  back:   { elbowMin: [80, 130], body: [0, 12], sag: [-0.05, 0.10], head: [0, 25], kneeMin: [110, 170], kick: [0.3, 0.9], cpm: [30, 55] },
+  breast: { elbowMin: [70, 120], body: [0, 20], sag: [-0.10, 0.15], head: [0, 40], kneeMin: [35, 75], cpm: [25, 50] },
+  fly:    { elbowMin: [80, 125], body: [0, 25], head: [0, 35], wave: [0.2, 0.6], kneeMin: [110, 170], cpm: [25, 50] }
+};
+const TIPS = {
+  elbowMin: {
+    high: { t: "Arm im Zug zu gestreckt", f: "Winkle den Ellbogen früh an und stelle den Unterarm senkrecht (High-Elbow-Catch). Hand und Unterarm bilden eine große Paddelfläche.", d: "Übung: Fingertip-Drag, Faust-Schwimmen, Catch-up." },
+    low: { t: "Arm im Zug zu stark gebeugt", f: "Beginne den Zug weiter vorn und ziehe den Ellbogen nicht zu weit hinter den Körper.", d: "Übung: Catch-up-Technik mit langer Gleitphase." }
+  },
+  body: { high: { t: "Körperlage zu steil", f: "Drücke die Brust leicht ins Wasser, Blick nach unten, Bauch anspannen, Beine hoch halten.", d: "Übung: Schwimmen mit Pull-Buoy, Fokus auf flache, lange Lage." } },
+  sag: { high: { t: "Hüfte sinkt ab", f: "Bauch und Gesäß anspannen, Beinschlag aus der Hüfte, Kopf neutral halten.", d: "Übung: Seitenlage-Kick (6 Schläge, dann Zug)." } },
+  head: { high: { t: "Kopf zu hoch / Nacken überstreckt", f: "Nacken lang, Kopf in Verlängerung der Wirbelsäule. Kraul/Delfin: Blick zum Beckenboden, Rücken: Blick zur Decke, Brust: leicht schräg nach unten.", d: "Übung: Gleiten mit Kopf in Neutralstellung, Schnorchel." } },
+  kneeMin: {
+    low: { t: "Beinschlag zu stark aus dem Knie", f: "Schlage aus der Hüfte, Beine lang lassen, Fußgelenke locker.", d: "Übung: Kraulbeine mit Brett, kleine schnelle Schläge." },
+    high: { t: "Beine zu steif", f: "Lasse die Knie leicht mitfedern, Fußspitzen überstrecken.", d: "Übung: Beinschlag in Rückenlage mit lockeren Fußgelenken." }
+  },
+  kick: {
+    low: { t: "Beinschlag kaum erkennbar", f: "Mehr Aktivität aus der Hüfte, Fersen knapp unter die Oberfläche bringen.", d: "Übung: Beinschlag mit Flossen, dann ohne." },
+    high: { t: "Beinschlag zu groß", f: "Kleinere Amplitude, Fersen knapp unter der Oberfläche, schnell statt tief.", d: "Übung: Kurze Sprints mit kleinen Beinschlägen." }
+  },
+  wave: {
+    low: { t: "Kaum Wellenbewegung", f: "Brust und Hüfte rhythmisch einsetzen: Brust nach unten, Hüfte hoch, dann umgekehrt.", d: "Übung: Delfinwelle in Bauchlage mit Armen am Körper." },
+    high: { t: "Welle zu groß", f: "Bewegung kleiner und flacher halten, Hüfte nicht zu weit aus dem Wasser.", d: "Übung: Delfin-Beinschlag mit Brett." }
+  }
+};
+const TIPS_BR = {
+  kneeMin: {
+    low: { t: "Fersen zu nah am Gesäß", f: "Zieh die Fersen weniger weit an – das bremst sonst. Knie nicht zu weit nach vorn unter den Bauch.", d: "Übung: Brustbeine mit Brett, Fersen nur bis hüftbreit anziehen." },
+    high: { t: "Beinanzug zu klein", f: "Zieh die Fersen weiter zum Gesäß an und drehe die Füße nach außen, bevor du schlägst.", d: "Übung: Brustbeine in Rückenlage." }
+  }
+};
+function getTip(stroke, key, dir) { return (stroke === "breast" && TIPS_BR[key] && TIPS_BR[key][dir]) || (TIPS[key] && TIPS[key][dir]) || null; }
+
+/* ---------- Hilfsfunktionen ---------- */
+const clean = a => a.filter(Number.isFinite);
+const pct = (a, p) => { a = clean(a).sort((x, y) => x - y); if (!a.length) return NaN; const i = p / 100 * (a.length - 1), lo = Math.floor(i), hi = Math.ceil(i); return a[lo] + (a[hi] - a[lo]) * (i - lo); };
+const med = a => pct(a, 50);
+const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+const fmt = (v, d = 0) => Number.isFinite(v) ? v.toFixed(d) : "–";
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const ang = (a, b, c) => { const v1 = [a.x - b.x, a.y - b.y], v2 = [c.x - b.x, c.y - b.y]; const m = Math.hypot(...v1) * Math.hypot(...v2); if (!m) return NaN; return Math.acos(Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / m))) * 180 / Math.PI; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- Tabs ---------- */
+function showTab(t) {
+  document.querySelectorAll(".tab").forEach(e => e.classList.toggle("active", e.id === "tab-" + t));
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  window.scrollTo(0, 0);
+  if (t === "review") renderReview(Number($("slider").value));
+  if (t === "values") renderCharts();
+  if (t === "hist") renderHistory();
+  if (t === "report") buildReport();
+}
+$("nav").addEventListener("click", e => { const b = e.target.closest("button"); if (b) showTab(b.dataset.t); });
+
+/* ---------- Pose-Modell ---------- */
+async function getLandmarker(q) {
+  if (landmarkers[q]) return landmarkers[q];
+  const fs = await FilesetResolver.forVisionTasks(WASM);
+  const mk = delegate => PoseLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: MODELS[q], delegate }, runningMode: "VIDEO", numPoses: 1 });
+  try { landmarkers[q] = await mk("GPU"); } catch (e) { landmarkers[q] = await mk("CPU"); }
+  return landmarkers[q];
+}
+function seek(v, t) {
+  return new Promise(res => {
+    if (Math.abs(v.currentTime - t) < 0.001 && v.readyState >= 2) { res(); return; }
+    let done = false;
+    const fin = () => { if (done) return; done = true; v.removeEventListener("seeked", fin); res(); };
+    v.addEventListener("seeked", fin); setTimeout(fin, 2000);
+    v.currentTime = t;
+  });
+}
+
+/* ---------- Video laden & analysieren ---------- */
+async function loadFile(file) {
+  if (!file || S.busy) return;
+  const v = $("vid");
+  if (S.url) URL.revokeObjectURL(S.url);
+  S.url = URL.createObjectURL(file);
+  v.src = S.url;
+  await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error("Video kann nicht gelesen werden.")); v.load(); }).catch(e => { alert(e.message); throw e; });
+  S.W = v.videoWidth; S.H = v.videoHeight;
+  await runAnalysis();
+}
+async function runAnalysis() {
+  const v = $("vid"); S.busy = true; S.cancel = false;
+  const q = $("quality").value; S.fps = q === "fast" ? 10 : 15;
+  const dur = Math.min(v.duration || 0, 60); const n = Math.floor(dur * S.fps);
+  $("progCard").hidden = false; $("progTitle").textContent = "Analyse läuft …";
+  const setP = (i, txt) => { $("progBar").style.width = (i / n * 100) + "%"; $("progTxt").textContent = txt; };
+  try {
+    if (n < 10) throw new Error("Video zu kurz (mind. ca. 2 Sekunden).");
+    setP(0, "Lade Pose-Modell (beim ersten Mal ca. 10–30 MB) …");
+    const lm = await getLandmarker(q);
+    const frames = [];
+    let found = 0;
+    for (let i = 0; i < n; i++) {
+      if (S.cancel) throw new Error("Abgebrochen.");
+      const t = i / S.fps; await seek(v, t);
+      let p = null;
+      try { const r = lm.detectForVideo(v, tsCounter += 100); if (r.landmarks && r.landmarks[0]) { p = r.landmarks[0].map(l => ({ x: l.x * S.W, y: l.y * S.H, v: l.visibility ?? 0 })); found++; } } catch (e) { }
+      frames.push({ t, p });
+      if (i % 4 === 0) { setP(i, `Bild ${i + 1} von ${n} …`); await sleep(0); }
+    }
+    if (found < n * 0.3) throw new Error("Person nur in wenigen Bildern erkannt. Bitte besser/näher filmen (ganzer Körper, guter Kontrast).");
+    S.frames = frames;
+    prepFrames(); pickSide(); features(); pickKeys();
+    setP(n, "Erstelle Standbilder …");
+    S.stills = [];
+    for (const k of ["pull", "recovery", "worst"]) { if (S.key[k] != null) S.stills.push({ k, i: S.key[k], img: await snapshot(S.key[k]) }); }
+    S.analysedAt = new Date().toISOString();
+    recompute(); renderKeyButtons();
+    $("slider").max = S.frames.length - 1; $("slider").value = S.key.pull ?? 0;
+    $("progCard").hidden = true; $("btnSave").disabled = false; $("saveMsg").textContent = "";
+    showTab("values");
+  } catch (e) {
+    $("progTitle").textContent = "Fehler"; $("progTxt").textContent = e.message;
+  } finally { S.busy = false; }
+}
+$("btnCancel").onclick = () => { S.cancel = true; $("progCard").hidden = true; };
+
+function prepFrames() {
+  const fr = S.frames; let last = null;
+  for (const f of fr) { if (f.p) last = f.p; else if (last) f.p = last.map(q => ({ ...q, v: 0.05 })); }
+  const first = fr.find(f => f.p);
+  for (const f of fr) { if (f.p) break; f.p = first.p.map(q => ({ ...q, v: 0.05 })); }
+  const n = fr.length;
+  fr.forEach((f, i) => { f.s = f.p.map((q, k) => { let sx = 0, sy = 0, c = 0; for (let j = Math.max(0, i - 1); j <= Math.min(n - 1, i + 1); j++) { const r = fr[j].p[k]; sx += r.x; sy += r.y; c++; } return { x: sx / c, y: sy / c, v: q.v }; }); });
+}
+function pickSide() {
+  const vis = idx => mean(S.frames.map(f => mean(idx.map(i => f.p[i].v))));
+  S.side = vis([11, 13, 15, 23, 25, 27]) >= vis([12, 14, 16, 24, 26, 28]) ? "L" : "R";
+  S.I = S.side === "L" ? { sh: 11, el: 13, wr: 15, hp: 23, kn: 25, an: 27, ear: 7 } : { sh: 12, el: 14, wr: 16, hp: 24, kn: 26, an: 28, ear: 8 };
+}
+function features() {
+  const I = S.I;
+  S.torso = med(S.frames.map(f => dist(f.s[I.sh], f.s[I.hp]))) || 1;
+  const T = S.torso;
+  S.feat = S.frames.map(f => {
+    const p = f.s, sh = p[I.sh], el = p[I.el], wr = p[I.wr], hp = p[I.hp], kn = p[I.kn], an = p[I.an], ea = p[I.ear];
+    const dx = an.x - sh.x, dy = an.y - sh.y;
+    let b = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI); b = Math.min(b, 180 - b);
+    let sag = NaN; if (Math.abs(dx) > T * 0.5) { const yl = sh.y + dy * (hp.x - sh.x) / dx; sag = (hp.y - yl) / T; }
+    return { elbow: ang(sh, el, wr), knee: ang(hp, kn, an), body: b, sag, head: 180 - ang(hp, sh, ea), wristH: (sh.y - wr.y) / T, ankleRel: (an.y - hp.y) / T, hipRel: (hp.y - sh.y) / T, vis: (sh.v + hp.v + an.v) / 3 };
+  });
+}
+function pickKeys() {
+  const idx = (key, fn) => { let bi = null, bv = null; S.feat.forEach((f, i) => { const x = f[key]; if (Number.isFinite(x) && f.vis > 0.25 && (bv === null || fn(x, bv))) { bi = i; bv = x; } }); return bi; };
+  S.key = { pull: idx("elbow", (a, b) => a < b), recovery: idx("wristH", (a, b) => a > b), worst: idx("sag", (a, b) => a > b) ?? idx("head", (a, b) => a > b) };
+}
+function period(sig, fps) {
+  const y0 = sig.map(v => Number.isFinite(v) ? v : 0), m = mean(y0), y = y0.map(v => v - m), n = y.length;
+  const minL = Math.max(2, Math.round(0.6 * fps)), maxL = Math.min(Math.floor(n / 2), Math.round(4 * fps));
+  if (maxL <= minL + 2) return null;
+  let e0 = 0; for (let i = 0; i < n; i++) e0 += y[i] * y[i]; if (!e0) return null;
+  const ac = [];
+  for (let l = 0; l <= maxL + 1; l++) { let s = 0; for (let i = 0; i + l < n; i++) s += y[i] * y[i + l]; ac[l] = (s / (n - l)) / (e0 / n); }
+  let max = -Infinity; for (let l = minL; l <= maxL; l++) if (ac[l] > max) max = ac[l];
+  if (max < 0.2) return null;
+  for (let l = minL; l <= maxL; l++) if (ac[l] > ac[l - 1] && ac[l] >= ac[l + 1] && ac[l] >= 0.8 * max) return { sec: l / fps, strength: ac[l] };
+  return null;
+}
+
+/* ---------- Kennzahlen, Status, Tipps ---------- */
+function computeValues() {
+  const ok = S.feat.filter(f => f.vis >= 0.3), use = ok.length >= 10 ? ok : S.feat;
+  const g = k => clean(use.map(f => f[k]));
+  const v = {
+    elbowMin: pct(g("elbow"), 5), body: med(g("body")), sag: med(g("sag")), head: med(g("head")), kneeMin: pct(g("knee"), 5),
+    kick: pct(g("ankleRel"), 95) - pct(g("ankleRel"), 5), wave: pct(g("hipRel"), 95) - pct(g("hipRel"), 5)
+  };
+  const sig = S.stroke === "breast" ? S.feat.map(f => f.elbow) : S.feat.map(f => f.wristH);
+  const per = period(sig, S.fps); v.cpm = per ? 60 / per.sec : NaN;
+  return v;
+}
+function statusOf(val, [lo, hi]) {
+  if (!Number.isFinite(val)) return { s: "na", dist: 0, dir: null };
+  if (val >= lo && val <= hi) return { s: "ok", dist: 0, dir: null };
+  const dir = val < lo ? "low" : "high", d = (val < lo ? lo - val : val - hi) / (hi - lo || 1);
+  return { s: d <= 0.3 ? "warn" : "bad", dist: d, dir };
+}
+function recompute() {
+  S.values = computeValues();
+  S.metrics = Object.keys(REF[S.stroke]).map(k => ({ key: k, ...DEF[k], val: S.values[k], range: REF[S.stroke][k], st: statusOf(S.values[k], REF[S.stroke][k]) }));
+  renderMetrics(); renderTips(); renderCharts(); renderReview(Number($("slider").value) || 0);
+  if (!$("tab-hist").classList.contains("active")) renderHistory();
+  if ($("tab-report").classList.contains("active")) buildReport();
+}
+function renderMetrics() {
+  $("valTitle").textContent = `Kennzahlen – ${STROKES[S.stroke]}${$("name").value ? " · " + $("name").value : ""}`;
+  $("metricGrid").innerHTML = S.metrics.map(m => `<div class="m"><span class="l">${esc(m.label)}</span><b>${fmt(m.val, m.d)}<small style="font-size:13px"> ${m.unit}</small></b><span class="l">Ziel ${m.range[0]}–${m.range[1]}${m.unit}</span><br><span class="badge ${m.st.s}">${{ ok: "im Bereich", warn: "leicht abweichend", bad: "auffällig", na: "n/a" }[m.st.s]}</span></div>`).join("")
+    + `<div class="m" style="grid-column:1/-1"><span class="l">Ellbogen-Streckung (95. Perz.)</span><b>${fmt(pct(clean(S.feat.map(f => f.elbow)), 95))}<small style="font-size:13px"> °</small></b><span class="l">Sichtbare Körperseite: ${S.side === "L" ? "links" : "rechts"} · Analysiert: ${S.frames.length} Bilder</span></div>`;
+}
+function tipList() {
+  const items = S.metrics.filter(m => m.st.s === "warn" || m.st.s === "bad").map(m => ({ m, tip: getTip(S.stroke, m.key, m.st.dir) })).filter(x => x.tip && !x.m.info);
+  items.sort((a, b) => b.m.st.dist - a.m.st.dist); return items;
+}
+function renderTips() {
+  const items = tipList(), good = S.metrics.filter(m => m.st.s === "ok" && !m.info);
+  const card = (x, i) => `<div class="tip ${x.m.st.s}"><b>${i != null ? (i + 1) + ". " : ""}${esc(x.tip.t)} <span class="small">(${fmt(x.m.val, x.m.d)}${x.m.unit}, Ziel ${x.m.range[0]}–${x.m.range[1]})</span></b>${esc(x.tip.f)}<div class="d">${esc(x.tip.d)}</div></div>`;
+  $("tipsMain").innerHTML = items.length ? items.slice(0, 3).map((x, i) => card(x, i)).join("") : "Keine auffälligen Abweichungen – sehr gut! Filme weitere Bahnen, um Konstanz zu prüfen.";
+  $("tipsMore").innerHTML = items.length > 3 ? items.slice(3).map(x => card(x)).join("") : "Keine weiteren Hinweise.";
+  $("tipsGood").innerHTML = good.length ? good.map(m => `<div class="tip good"><b>${esc(m.label)}</b>${fmt(m.val, m.d)}${m.unit} – im Zielbereich</div>`).join("") : "–";
+}
+
+/* ---------- Skelett & Bildansicht ---------- */
+const EDGES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [0, 7], [0, 8]];
+function drawSkeleton(ctx, p, labels) {
+  const lw = Math.max(2.5, S.W / 200), near = new Set(S.side === "L" ? [11, 13, 15, 23, 25, 27, 7] : [12, 14, 16, 24, 26, 28, 8]);
+  ctx.lineCap = "round"; ctx.lineWidth = lw;
+  for (const [a, b] of EDGES) { ctx.strokeStyle = near.has(a) && near.has(b) ? "#ffd166" : "rgba(76,201,240,.65)"; ctx.beginPath(); ctx.moveTo(p[a].x, p[a].y); ctx.lineTo(p[b].x, p[b].y); ctx.stroke(); }
+  for (const i of [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 0]) { ctx.fillStyle = near.has(i) ? "#fff" : "#4cc9f0"; ctx.beginPath(); ctx.arc(p[i].x, p[i].y, lw * 1.4, 0, 7); ctx.fill(); }
+  if (labels) {
+    ctx.font = `bold ${Math.round(S.W / 28)}px sans-serif`; ctx.lineWidth = 4; ctx.strokeStyle = "#000"; ctx.fillStyle = "#fff";
+    for (const [pt, txt] of labels) { ctx.strokeText(txt, pt.x + lw * 2, pt.y - lw * 2); ctx.fillText(txt, pt.x + lw * 2, pt.y - lw * 2); }
+  }
+}
+async function drawFrame(ctx, i, k = 1) {
+  const v = $("vid"), f = S.frames[i], ft = S.feat[i];
+  await seek(v, f.t);
+  ctx.save(); ctx.scale(k, k); ctx.drawImage(v, 0, 0, S.W, S.H);
+  drawSkeleton(ctx, f.s, [[f.s[S.I.el], fmt(ft.elbow) + "°"], [f.s[S.I.kn], fmt(ft.knee) + "°"]]);
+  ctx.restore();
+}
+async function snapshot(i) {
+  const k = Math.min(1, 720 / S.W), c = document.createElement("canvas"); c.width = Math.round(S.W * k); c.height = Math.round(S.H * k);
+  await drawFrame(c.getContext("2d"), i, k); return c.toDataURL("image/jpeg", 0.7);
+}
+async function renderReview(i) {
+  if (!S.frames.length) { $("reviewEmpty").hidden = false; return; }
+  $("reviewEmpty").hidden = true;
+  const cv = $("cv"), tk = ++S.vtoken; if (cv.width !== S.W) { cv.width = S.W; cv.height = S.H; }
+  await drawFrame(cv.getContext("2d"), i); if (tk !== S.vtoken) return;
+  const f = S.feat[i];
+  $("readout").innerHTML = [`t = ${S.frames[i].t.toFixed(2)} s`, `Ellbogen ${fmt(f.elbow)}°`, `Knie ${fmt(f.knee)}°`, `Körperlage ${fmt(f.body)}°`, `Hüfte ${Number.isFinite(f.sag) ? (f.sag > 0 ? "+" : "") + f.sag.toFixed(2) : "–"}`, `Kopf ${fmt(f.head)}°`].map(x => `<span class="chip">${x}</span>`).join("");
+}
+function renderKeyButtons() {
+  const names = { pull: "Zugphase", recovery: "Hand oben", worst: "Hüfte tiefste" };
+  $("keyBtns").innerHTML = Object.keys(names).filter(k => S.key[k] != null).map(k => `<button class="btn" data-k="${k}">${names[k]}</button>`).join("");
+}
+$("keyBtns").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; const i = S.key[b.dataset.k]; $("slider").value = i; renderReview(i); });
+$("slider").addEventListener("input", e => renderReview(Number(e.target.value)));
+$("bPrev").onclick = () => { const s = $("slider"); s.value = Math.max(0, Number(s.value) - 1); renderReview(Number(s.value)); };
+$("bNext").onclick = () => { const s = $("slider"); s.value = Math.min(Number(s.max), Number(s.value) + 1); renderReview(Number(s.value)); };
+
+/* ---------- Diagramme ---------- */
+function lineChart(cv, series, opt = {}) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; if (!w) return;
+  cv.width = w * dpr; cv.height = h * dpr; const c = cv.getContext("2d"); c.scale(dpr, dpr); c.clearRect(0, 0, w, h);
+  const all = series.flatMap(s => clean(s.data)); if (!all.length) { c.fillStyle = "#8fb3c4"; c.font = "13px sans-serif"; c.fillText("Keine Daten", 10, 20); return; }
+  let lo = Math.min(...all), hi = Math.max(...all); if (lo === hi) { lo -= 1; hi += 1; } const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+  const L = 36, R = 8, T = 18, B = opt.xl ? 22 : 8, n = Math.max(...series.map(s => s.data.length));
+  const X = i => L + (n > 1 ? i / (n - 1) : 0.5) * (w - L - R), Y = v => T + (1 - (v - lo) / (hi - lo)) * (h - T - B);
+  c.strokeStyle = "#1d5272"; c.fillStyle = "#8fb3c4"; c.font = "11px sans-serif"; c.lineWidth = 1;
+  for (let g = 0; g <= 3; g++) { const v = lo + (hi - lo) * g / 3, y = Y(v); c.beginPath(); c.moveTo(L, y); c.lineTo(w - R, y); c.stroke(); c.fillText(v.toFixed(opt.d ?? 0), 2, y + 4); }
+  let lx = L; series.forEach(s => {
+    c.strokeStyle = s.color; c.fillStyle = s.color; c.lineWidth = 2; c.beginPath(); let pen = false;
+    s.data.forEach((v, i) => { if (!Number.isFinite(v)) { pen = false; return; } if (!pen) { c.moveTo(X(i), Y(v)); pen = true; } else c.lineTo(X(i), Y(v)); }); c.stroke();
+    if (opt.dots) s.data.forEach((v, i) => { if (Number.isFinite(v)) { c.beginPath(); c.arc(X(i), Y(v), 3.5, 0, 7); c.fill(); } });
+    c.font = "11px sans-serif"; c.fillText(s.label, lx, 11); lx += c.measureText(s.label).width + 16;
+  });
+  if (opt.xl) { c.fillStyle = "#8fb3c4"; c.font = "10px sans-serif"; opt.xl.forEach((t, i) => { if (n < 8 || i % Math.ceil(n / 6) === 0) c.fillText(t, Math.max(0, X(i) - 14), h - 6); }); }
+}
+function renderCharts() {
+  if (!S.feat.length) return;
+  lineChart($("ch1"), [{ data: S.feat.map(f => f.elbow), color: "#ffd166", label: "Ellbogen °" }, { data: S.feat.map(f => f.knee), color: "#22c1dc", label: "Knie °" }]);
+  lineChart($("ch2"), [{ data: S.feat.map(f => f.wristH), color: "#3ddc97", label: "Handhöhe" }, { data: S.feat.map(f => f.hipRel), color: "#ff6b6b", label: "Hüftlage" }], { d: 1 });
+}
+
+/* ---------- Verlauf (lokal gespeichert) ---------- */
+const KEY = "swimlens_sessions_v1";
+function loadSess() { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { return S.mem || []; } }
+function saveSess(a) { S.mem = a; try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) { } }
+$("btnSave").onclick = () => {
+  const a = loadSess(), name = $("name").value.trim() || "Ohne Name";
+  a.push({ id: Date.now(), name, date: new Date().toISOString(), stroke: S.stroke, v: S.values });
+  saveSess(a); $("saveMsg").textContent = "Gespeichert ✔"; try { localStorage.setItem("swimlens_name", name); } catch (e) { }
+};
+function renderHistory() {
+  const all = loadSess(), names = [...new Set(all.map(s => s.name))];
+  const sel = (id, opts, cur) => { const el = $(id); const prev = cur ?? el.value; el.innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join(""); if ([...el.options].some(o => o.value === prev)) el.value = prev; };
+  if (!$("hMetric").options.length) sel("hMetric", Object.keys(DEF).map(k => [k, DEF[k].label]));
+  sel("hName", names.length ? names.map(n => [n, n]) : [["", "–"]]);
+  if (!S._hs) { $("hStroke").value = S.stroke; S._hs = 1; }
+  const m = $("hMetric").value, st = $("hStroke").value, nm = $("hName").value;
+  const rows = all.filter(s => s.stroke === st && s.name === nm).sort((a, b) => a.date.localeCompare(b.date));
+  const vals = rows.map(r => r.v[m] == null ? NaN : r.v[m]);
+  lineChart($("ch3"), [{ data: vals, color: "#22c1dc", label: DEF[m]?.label || "" }], { dots: true, xl: rows.map(r => r.date.slice(5, 10).split("-").reverse().join(".")), d: DEF[m]?.d || 0 });
+  const ok = clean(vals); $("hDelta").textContent = ok.length >= 2 ? `Veränderung zur vorherigen Session: ${(ok[ok.length - 1] - ok[ok.length - 2] >= 0 ? "+" : "")}${(ok[ok.length - 1] - ok[ok.length - 2]).toFixed(DEF[m].d + (DEF[m].d ? 0 : 0))} ${DEF[m].unit}` : "Mindestens zwei Sessions nötig.";
+  $("histList").innerHTML = all.length ? [...all].reverse().map(s => `<div class="hist"><span>${esc(s.name)} · ${STROKES[s.stroke]}<br><span class="small">${new Date(s.date).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}</span></span><button data-id="${s.id}" aria-label="Löschen">🗑</button></div>`).join("") : "Noch keine Sessions gespeichert.";
+}
+["hMetric", "hStroke", "hName"].forEach(id => $(id).addEventListener("change", renderHistory));
+$("histList").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; saveSess(loadSess().filter(s => String(s.id) !== b.dataset.id)); renderHistory(); });
+
+/* ---------- Bericht ---------- */
+function buildReport() {
+  if (!S.values) return;
+  const items = tipList(), name = $("name").value.trim() || "–";
+  const key = { pull: "Zugphase", recovery: "Hand oben", worst: "Größte Hüftabsenkung" };
+  $("report").innerHTML = `<h2>Schwimmtechnik-Bericht – ${STROKES[S.stroke]}</h2>
+  <div class="tp">Schwimmer/in: <b>${esc(name)}</b> · Datum: ${new Date(S.analysedAt || Date.now()).toLocaleDateString("de-DE")} · Analyse: ${S.frames.length} Bilder (${S.fps}/s), sichtbare Seite ${S.side === "L" ? "links" : "rechts"}</div>
+  <h3>Kennzahlen</h3><table><tr><th>Messwert</th><th>Ist</th><th>Ziel</th><th>Bewertung</th></tr>${S.metrics.map(m => `<tr><td>${esc(m.label)}</td><td>${fmt(m.val, m.d)} ${m.unit}</td><td>${m.range[0]}–${m.range[1]} ${m.unit}</td><td>${{ ok: "✔ im Bereich", warn: "◐ leicht abweichend", bad: "✖ auffällig", na: "–" }[m.st.s]}</td></tr>`).join("")}</table>
+  <h3>Schlüsselbilder</h3><div>${S.stills.map(s => `<img src="${s.img}" alt="${key[s.k]}">`).join(" ")}</div><div class="tp">${S.stills.map(s => key[s.k]).join(" · ")}</div>
+  <h3>Korrekturen für den Schwimmer / die Schwimmerin</h3>${items.length ? items.map((x, i) => `<div class="tp"><b>${i + 1}. ${esc(x.tip.t)}</b> (${fmt(x.m.val, x.m.d)}${x.m.unit}, Ziel ${x.m.range[0]}–${x.m.range[1]})<br>${esc(x.tip.f)}<br><i>${esc(x.tip.d)}</i></div>`).join("") : '<div class="tp">Keine auffälligen Abweichungen.</div>'}
+  <h3>Hinweis</h3><div class="tp" style="color:#555">Automatische 2D-Auswertung per Handykamera. Werte sind Richtwerte und hängen von Kamerawinkel, Wasserbedingungen und Erkennungsqualität ab; sie ersetzen keine Trainerbeurteilung.</div>`;
+}
+$("btnPrint").onclick = () => { buildReport(); window.print(); };
+
+/* ---------- Start-Tab ---------- */
+$("strokeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return; S.stroke = b.dataset.s;
+  document.querySelectorAll("#strokeSeg button").forEach(x => x.classList.toggle("on", x === b));
+  if (S.frames.length) recompute();
+});
+$("btnRec").onclick = () => $("fileRec").click(); $("btnPick").onclick = () => $("filePick").click();
+for (const id of ["fileRec", "filePick"]) $(id).addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) loadFile(f).catch(() => { }); });
+try { $("name").value = localStorage.getItem("swimlens_name") || ""; } catch (e) { }
+$("name").addEventListener("change", () => { if (S.values) { renderMetrics(); } });
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => { });
+</script>
+</body>
+</html>
